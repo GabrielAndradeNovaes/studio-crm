@@ -2,11 +2,14 @@ import * as React from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Building2,
+  ContactRound,
+  Gem,
   LayoutDashboard,
   LogOut,
   Settings,
   ShieldCheck,
   Sparkles,
+  Syringe,
   Users,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui/primitives";
@@ -40,15 +43,38 @@ export function AppShell() {
     navigate("/login", { replace: true });
   };
 
+  const hasPiercing = Boolean(
+    currentStudio?.enabled_modules?.includes("piercing")
+  );
+
   const navItems = [
     ...(currentStudio
       ? [
           {
             to: "/",
-            label: "Visão Geral",
+            label: "Início",
             icon: LayoutDashboard,
             end: true,
           },
+          {
+            to: "/clients",
+            label: "Clientes",
+            icon: ContactRound,
+          },
+          ...(hasPiercing
+            ? [
+                {
+                  to: "/piercing/services",
+                  label: "Perfurações",
+                  icon: Syringe,
+                },
+                {
+                  to: "/piercing/inventory",
+                  label: "Joias & Estoque",
+                  icon: Gem,
+                },
+              ]
+            : []),
           {
             to: "/team",
             label: "Equipe",
@@ -58,7 +84,7 @@ export function AppShell() {
             ? [
                 {
                   to: "/settings",
-                  label: "Estúdio & Taxas",
+                  label: "Taxas & Estúdio",
                   icon: Settings,
                 },
               ]
@@ -69,7 +95,7 @@ export function AppShell() {
       ? [
           {
             to: "/admin",
-            label: "SuperAdmin SaaS",
+            label: "SuperAdmin",
             icon: ShieldCheck,
           },
         ]
@@ -237,9 +263,9 @@ export function AppShell() {
       {/* Mobile Bottom Navigation */}
       <nav
         aria-label="Navegação móvel"
-        className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-around border-t border-border bg-card px-2 py-1.5 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-around overflow-x-auto border-t border-border bg-card px-1.5 py-1.5 md:hidden"
       >
-        {navItems.map((item) => {
+        {navItems.slice(0, 5).map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -247,13 +273,13 @@ export function AppShell() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex min-h-[48px] min-w-[68px] flex-col items-center justify-center rounded-md px-2 text-xs font-medium ${
+                `flex min-h-[48px] min-w-[64px] flex-col items-center justify-center rounded-md px-1.5 text-[11px] font-medium ${
                   isActive ? "text-slate-900 font-semibold" : "text-muted-foreground"
                 }`
               }
             >
               <Icon className="mb-0.5 h-5 w-5" aria-hidden="true" />
-              {item.label}
+              <span className="truncate">{item.label}</span>
             </NavLink>
           );
         })}

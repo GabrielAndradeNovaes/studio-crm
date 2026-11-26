@@ -8,7 +8,7 @@ Plataforma SaaS B2B **multi-tenant** voltada para estúdios de **Body Piercing**
 - `/frontend`: React 18 + TypeScript + Vite + Tailwind CSS + TanStack Query + componentes acessíveis inspirados em `shadcn/ui`.
 - `docker-compose.yml`: PostgreSQL 16 + API FastAPI + Frontend Vite.
 
-## Destaques da Fase 1
+## Destaques das Fases 1 e 2
 
 1. **Identidade Global + Multi-Estúdio (`users` + `studio_memberships`):**
    - Login único por e-mail e senha.
@@ -20,6 +20,12 @@ Plataforma SaaS B2B **multi-tenant** voltada para estúdios de **Body Piercing**
    - Controle de `subscription_status` (`TRIAL | ACTIVE | PAST_DUE | SUSPENDED`), `trial_ends_at`, `timezone` (padrão `America/Sao_Paulo`), `enabled_modules` e `commission_deducts_payment_fee`.
    - Bloqueio automático de estúdios suspensos (`STUDIO_SUSPENDED`) ou inativos (`STUDIO_INACTIVE`).
    - SuperAdmin global (`is_superadmin`) via CLI/seed e painel `/admin`.
+4. **CRM de Clientes (`clients`):**
+   - Busca rápida por nome, e-mail ou WhatsApp normalizado (índice único parcial ativo por estúdio), tags e origem do lead.
+   - Cálculo de maioridade no fuso do estúdio e exigência obrigatória de dados do responsável legal para menores de 18 anos.
+5. **Módulo Piercing — Catálogo e Estoque/Kardex (`piercing_services`, `piercing_products`, `inventory_movements`):**
+   - Catálogo de perfurações por local anatômico com duração, preço base e recomendação de downsize.
+   - Estoque de joias (Titânio ASTM F136, Ouro 18k, calibre, tamanho) e insumos pós-piercing com Kardex imutável (`SELECT ... FOR UPDATE`), bloqueio de edição direta de saldo e omissão estrita de custos (`cost_price` / `unit_cost_snapshot`) para `RECEPTION` e `PROFESSIONAL`.
 
 ## Como Subir via Docker
 

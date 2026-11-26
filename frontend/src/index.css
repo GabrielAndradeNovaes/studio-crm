@@ -34,6 +34,12 @@
   }
 }
 
+/* Defer validation feedback until user has interacted (:user-invalid) */
+:is(input, select, textarea):is(:user-invalid, .user-invalid-fallback) {
+  border-color: hsl(var(--destructive));
+  background-color: rgb(254 242 242);
+}
+
 /* Native <dialog> scroll containment without body overflow locking */
 dialog:modal {
   overscroll-behavior: contain;
@@ -126,6 +132,12 @@ dialog::backdrop {
 
   .responsive-data-table tbody td:nth-child(5)::before {
     content: var(--label-5) ": ";
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .responsive-data-table tbody td:nth-child(6)::before {
+    content: var(--label-6) ": ";
     font-weight: 600;
     color: hsl(var(--muted-foreground));
   }

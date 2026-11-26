@@ -22,6 +22,29 @@ def validate_timezone_name(tz_name: str) -> str:
     return cleaned
 
 
+def today_in_studio_timezone(tz_name: str = "America/Sao_Paulo") -> date:
+    tz = ZoneInfo(validate_timezone_name(tz_name))
+    return datetime.now(tz).date()
+
+
+def calculate_age_in_timezone(
+    birth_date: date, tz_name: str = "America/Sao_Paulo"
+) -> tuple[int, bool]:
+    """Retorna `(age, is_minor)` calculados na data civil atual do fuso do estúdio."""
+    today_local = today_in_studio_timezone(tz_name)
+    if birth_date > today_local:
+        raise DomainValidationError(
+            detail="A data de nascimento não pode ser uma data futura.",
+            code="INVALID_BIRTH_DATE",
+        )
+    age = (
+        today_local.year
+        - birth_date.year
+        - ((today_local.month, today_local.day) < (birth_date.month, birth_date.day))
+    )
+    return age, age < 18
+
+
 def studio_date_range_to_utc(
     start_date: date, end_date: date, tz_name: str = "America/Sao_Paulo"
 ) -> tuple[datetime, datetime]:
