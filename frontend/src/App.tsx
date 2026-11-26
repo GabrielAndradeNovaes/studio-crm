@@ -1,10 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { AnamnesisPage } from "@/features/anamnesis/AnamnesisPage";
+import { PublicAnamnesisPage } from "@/features/anamnesis/PublicAnamnesisPage";
+import { AppointmentsPage } from "@/features/appointments/AppointmentsPage";
 import { AuthProvider, useAuth } from "@/features/auth/AuthContext";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { OnboardingPage } from "@/features/auth/OnboardingPage";
 import { ClientsPage } from "@/features/clients/ClientsPage";
+import { DownsizePage } from "@/features/piercing/DownsizePage";
 import { PiercingInventoryPage } from "@/features/piercing/PiercingInventoryPage";
 import { PiercingServicesPage } from "@/features/piercing/PiercingServicesPage";
 import { OverviewPage } from "@/features/studio/OverviewPage";
@@ -72,9 +76,12 @@ export function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
+            {/* Rotas Públicas */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/anamnese/:token" element={<PublicAnamnesisPage />} />
 
+            {/* Rotas Operacionais Protegidas */}
             <Route
               element={
                 <ProtectedRoute>
@@ -83,7 +90,17 @@ export function App() {
               }
             >
               <Route path="/" element={<OverviewPage />} />
+              <Route path="/appointments" element={<AppointmentsPage />} />
               <Route path="/clients" element={<ClientsPage />} />
+              <Route path="/anamnesis" element={<AnamnesisPage />} />
+              <Route
+                path="/piercing/downsize"
+                element={
+                  <ModuleRoute moduleName="piercing">
+                    <DownsizePage />
+                  </ModuleRoute>
+                }
+              />
               <Route
                 path="/piercing/services"
                 element={

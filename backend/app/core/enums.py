@@ -43,6 +43,23 @@ class InventoryMovementType(str, enum.Enum):
     ADJUSTMENT = "ADJUSTMENT"
 
 
+class AppointmentStatus(str, enum.Enum):
+    AGENDADO = "AGENDADO"
+    CONFIRMADO = "CONFIRMADO"
+    EM_ATENDIMENTO = "EM_ATENDIMENTO"
+    CONCLUIDO = "CONCLUIDO"
+    CANCELADO = "CANCELADO"
+    FALTOU = "FALTOU"
+
+
+class DepositStatus(str, enum.Enum):
+    NONE = "NONE"
+    PAID = "PAID"
+    APPLIED_TO_SALE = "APPLIED_TO_SALE"
+    REFUNDED = "REFUNDED"
+    FORFEITED = "FORFEITED"
+
+
 class AuditAction(str, enum.Enum):
     CREATE = "CREATE"
     UPDATE = "UPDATE"
@@ -52,6 +69,7 @@ class AuditAction(str, enum.Enum):
     SWITCH_STUDIO = "SWITCH_STUDIO"
     REFUND = "REFUND"
     INVENTORY_MOVEMENT = "INVENTORY_MOVEMENT"
+    DEPOSIT_RECEIVED = "DEPOSIT_RECEIVED"
 
 
 SUPPORTED_MODULES: frozenset[str] = frozenset({"piercing", "tattoo"})

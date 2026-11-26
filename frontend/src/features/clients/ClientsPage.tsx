@@ -15,8 +15,15 @@ import { ApiError, apiFetch } from "@/lib/api";
 import {
   computeAgeAndMinorInTimezone,
   formatPlainCalendarDate,
+  formatUtcInStudioTimezone,
 } from "@/lib/dates";
-import type { ClientRecord, LeadSource } from "@/lib/types";
+import type {
+  AnamnesisRecordSummary,
+  AppointmentItem,
+  ClientRecord,
+  LeadSource,
+  PiercingProcedureItem,
+} from "@/lib/types";
 
 const LEAD_SOURCES: { value: LeadSource; label: string }[] = [
   { value: "INSTAGRAM", label: "Instagram" },
@@ -600,7 +607,7 @@ export function ClientsPage() {
         title={viewingClient?.full_name || "Perfil do Cliente"}
       >
         {viewingClient && (
-          <div className="space-y-4 text-sm">
+          <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1 text-sm">
             {viewingClient.is_minor && (
               <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-amber-950">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
@@ -684,6 +691,14 @@ export function ClientsPage() {
               </div>
             )}
 
+            <ClientClinicalHistory
+              clientId={viewingClient.id}
+              studioTz={studioTz}
+              hasPiercing={Boolean(
+                currentStudio?.enabled_modules?.includes("piercing")
+              )}
+            />
+
             <div className="flex items-center justify-between border-t border-border pt-4">
               {canDelete ? (
                 <Button
@@ -705,6 +720,136 @@ export function ClientsPage() {
           </div>
         )}
       </ModalDialog>
+    </div>
+  );
+}
+
+function ClientClinicalHistory({
+  clientId,
+  studioTz,
+  hasPiercing,
+}: {
+  clientId: string;
+  studioTz: string;
+  hasPiercing: boolean;
+}) {
+  const appointmentsQuery = useQuery({
+    queryKey: ["client-history-appts", clientId],
+    queryFn: () =>
+      apiFetch<AppointmentItem[]>(`/appointments?client_id=${clientId}`),
+  });
+
+  const anamnesesQuery = useQuery({
+    queryKey: ["client-history-anamneses", clientId],
+    queryFn: () =>
+      apiFetch<AnamnesisRecordSummary[]>(
+        `/anamnesis/records?client_id=${clientId}`
+      ),
+  });
+
+  const proceduresQuery = useQuery({
+    queryKey: ["client-history-procedures", clientId],
+    queryFn: () =>
+      apiFetch<PiercingProcedureItem[]>(
+        `/piercing/procedures?client_id=${clientId}`
+      ),
+    enabled: hasPiercing,
+  });
+
+  return (
+    <div className="space-y-3 border-t border-border pt-3 text-xs">
+      <div>
+        <h3 className="font-bold uppercase tracking-wider text-muted-foreground">
+          Agendamentos ({appointmentsQuery.data?.length ?? 0})
+        </h3>
+        <div className="mt-1.5 space-y-1.5">
+          {appointmentsQuery.data?.slice(0, 5).map((a) => {
+            const fmt = formatUtcInStudioTimezone(a.start_at, studioTz);
+            return (
+              <div
+                key={a.id}
+                className="flex items-center justify-between rounded border border-border bg-slate-50 px-2.5 py-1.5"
+              >
+                <span>
+                  {fmt.dateLabel} às {fmt.timeLabel} • {a.service_name || a.module}
+                </span>
+                <Badge tone="neutral">{a.status}</Badge>
+              </div>
+            );
+          })}
+          {appointmentsQuery.data?.length === 0 && (
+            <p className="text-muted-foreground">Nenhum agendamento registrado.</p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-bold uppercase tracking-wider text-muted-foreground">
+          Anamneses Assinadas ({anamnesesQuery.data?.length ?? 0})
+        </h3>
+        <div className="mt-1.5 space-y-1.5">
+          {anamnesesQuery.data?.slice(0, 5).map((rec) => (
+            <div
+              key={rec.id}
+              className="flex items-center justify-between rounded border border-border bg-slate-50 px-2.5 py-1.5"
+            >
+              <span>
+                {rec.module} v{rec.template_version} •{" "}
+                {rec.consent_accepted_at
+                  ? new Date(rec.consent_accepted_at).toLocaleDateString("pt-BR")
+                  : "—"}
+              </span>
+              <Badge tone="success">Assinada</Badge>
+            </div>
+          ))}
+          {anamnesesQuery.data?.length === 0 && (
+            <p className="text-muted-foreground">Nenhuma ficha assinada.</p>
+          )}
+        </div>
+      </div>
+
+      {hasPiercing && (
+        <div>
+          <h3 className="font-bold uppercase tracking-wider text-muted-foreground">
+            Procedimentos &amp; Downsize ({proceduresQuery.data?.length ?? 0})
+          </h3>
+          <div className="mt-1.5 space-y-1.5">
+            {proceduresQuery.data?.slice(0, 5).map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between rounded border border-border bg-slate-50 px-2.5 py-1.5"
+              >
+                <div>
+                  <span className="font-medium text-slate-900">
+                    {p.anatomical_site_detail}
+                  </span>
+                  {p.jewelry_name ? ` • ${p.jewelry_name}` : ""}
+                </div>
+                <Badge
+                  tone={
+                    p.downsize_completed_at
+                      ? "success"
+                      : p.is_overdue
+                      ? "danger"
+                      : "info"
+                  }
+                >
+                  {p.downsize_completed_at
+                    ? "Downsize OK"
+                    : p.downsize_reminder_date
+                    ? `Downsize: ${formatPlainCalendarDate(p.downsize_reminder_date)}`
+                    : "Registrado"}
+                </Badge>
+              </div>
+            ))}
+            {proceduresQuery.data?.length === 0 && (
+              <p className="text-muted-foreground">
+                Nenhum procedimento registrado.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

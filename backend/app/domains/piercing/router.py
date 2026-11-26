@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from app.core.module_guard import require_module
 from app.core.rbac import TenantContext
 from app.domains.piercing.inventory.router import router as inventory_router
+from app.domains.piercing.procedures.router import router as procedures_router
 from app.domains.piercing.services.router import router as services_router
 
 router = APIRouter(
@@ -15,6 +16,7 @@ router = APIRouter(
 
 router.include_router(services_router)
 router.include_router(inventory_router)
+router.include_router(procedures_router)
 
 
 @router.get("/module-status")

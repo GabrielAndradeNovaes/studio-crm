@@ -24,6 +24,56 @@ export function formatPlainCalendarDate(isoDate: string): string {
   }
 }
 
+export function todayIsoInTimezone(studioTimezone = "America/Sao_Paulo"): string {
+  const T = getTemporal();
+  return T.Now.zonedDateTimeISO(studioTimezone).toPlainDate().toString();
+}
+
+export function shiftPlainDateIso(isoDate: string, days: number): string {
+  const T = getTemporal();
+  return T.PlainDate.from(isoDate).add({ days }).toString();
+}
+
+/**
+ * Converte data civil + hora local do estúdio para instante UTC ISO 8601
+ * usando `Temporal.ZonedDateTime.from` com `disambiguation: 'compatible'`.
+ */
+export function studioLocalDateTimeToUtcIso(
+  isoDate: string,
+  hhmm: string,
+  studioTimezone = "America/Sao_Paulo"
+): string {
+  const T = getTemporal();
+  const zdt = T.ZonedDateTime.from(`${isoDate}T${hhmm}[${studioTimezone}]`, {
+    disambiguation: "compatible",
+  });
+  return zdt.toInstant().toString();
+}
+
+/**
+ * Formata um timestamp UTC exatamente no fuso horário IANA do estúdio.
+ */
+export function formatUtcInStudioTimezone(
+  utcIso: string,
+  studioTimezone = "America/Sao_Paulo"
+): { dateLabel: string; timeLabel: string; isoDate: string; hhmm: string } {
+  const T = getTemporal();
+  const zdt = T.Instant.from(utcIso).toZonedDateTimeISO(studioTimezone);
+  const dateLabel = zdt.toPlainDate().toLocaleString("pt-BR");
+  const timeLabel = zdt.toLocaleString("pt-BR", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const hh = String(zdt.hour).padStart(2, "0");
+  const mm = String(zdt.minute).padStart(2, "0");
+  return {
+    dateLabel,
+    timeLabel,
+    isoDate: zdt.toPlainDate().toString(),
+    hhmm: `${hh}:${mm}`,
+  };
+}
+
 /**
  * Calcula idade civil exata e indicador de menoridade (< 18 anos) usando
  * o fuso horário IANA do estúdio (ex.: America/Sao_Paulo).
@@ -62,4 +112,11 @@ export function formatCurrencyBRL(value: string | number): string {
     style: "currency",
     currency: "BRL",
   }).format(num);
+}
+
+export function buildWhatsAppUrl(rawPhoneDigits: string, message: string): string {
+  const clean = rawPhoneDigits.replace(/\D+/g, "");
+  const e164 =
+    clean.length === 10 || clean.length === 11 ? `55${clean}` : clean;
+  return `https://wa.me/${e164}?text=${encodeURIComponent(message)}`;
 }

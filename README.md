@@ -8,7 +8,7 @@ Plataforma SaaS B2B **multi-tenant** voltada para estúdios de **Body Piercing**
 - `/frontend`: React 18 + TypeScript + Vite + Tailwind CSS + TanStack Query + componentes acessíveis inspirados em `shadcn/ui`.
 - `docker-compose.yml`: PostgreSQL 16 + API FastAPI + Frontend Vite.
 
-## Destaques das Fases 1 e 2
+## Destaques das Fases 1, 2 e 3
 
 1. **Identidade Global + Multi-Estúdio (`users` + `studio_memberships`):**
    - Login único por e-mail e senha.
@@ -26,6 +26,10 @@ Plataforma SaaS B2B **multi-tenant** voltada para estúdios de **Body Piercing**
 5. **Módulo Piercing — Catálogo e Estoque/Kardex (`piercing_services`, `piercing_products`, `inventory_movements`):**
    - Catálogo de perfurações por local anatômico com duração, preço base e recomendação de downsize.
    - Estoque de joias (Titânio ASTM F136, Ouro 18k, calibre, tamanho) e insumos pós-piercing com Kardex imutável (`SELECT ... FOR UPDATE`), bloqueio de edição direta de saldo e omissão estrita de custos (`cost_price` / `unit_cost_snapshot`) para `RECEPTION` e `PROFESSIONAL`.
+6. **Agenda Operacional com Sinal, Anamnese Versionada (LGPD) & Ficha Técnica/Downsize:**
+   - Agenda diária e semanal no fuso do estúdio (`appointments`) com bloqueio de conflito de horário por profissional, escopo individual para `PROFESSIONAL` e registro dedicado de sinal sem duplicidade.
+   - Fichas de anamnese versionadas (`anamnesis_templates`, `anamnesis_records`) estritamente imutáveis após aceite (`409 ANAMNESIS_IMMUTABLE`), trilha `READ_SENSITIVE` em `audit_logs` e link público temporário de uso único (`/anamnese/:token`) para assinatura no celular.
+   - Registro técnico (`piercing_procedures`) com lote de autoclave, lembretes automáticos de retorno para downsize e envio rápido via WhatsApp (sem baixa duplicada de estoque antes do PDV).
 
 ## Como Subir via Docker
 

@@ -2,7 +2,10 @@ import * as React from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Building2,
+  Calendar,
+  CalendarClock,
   ContactRound,
+  FileSignature,
   Gem,
   LayoutDashboard,
   LogOut,
@@ -57,12 +60,27 @@ export function AppShell() {
             end: true,
           },
           {
+            to: "/appointments",
+            label: "Agenda",
+            icon: Calendar,
+          },
+          {
             to: "/clients",
             label: "Clientes",
             icon: ContactRound,
           },
+          {
+            to: "/anamnesis",
+            label: "Anamnese",
+            icon: FileSignature,
+          },
           ...(hasPiercing
             ? [
+                {
+                  to: "/piercing/downsize",
+                  label: "Downsize",
+                  icon: CalendarClock,
+                },
                 {
                   to: "/piercing/services",
                   label: "Perfurações",
@@ -200,7 +218,7 @@ export function AppShell() {
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) =>
-                    `flex min-h-[44px] items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    `flex min-h-[42px] items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                       isActive
                         ? "bg-slate-900 text-white"
                         : "text-slate-700 hover:bg-secondary"
@@ -263,9 +281,9 @@ export function AppShell() {
       {/* Mobile Bottom Navigation */}
       <nav
         aria-label="Navegação móvel"
-        className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-around overflow-x-auto border-t border-border bg-card px-1.5 py-1.5 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between overflow-x-auto border-t border-border bg-card px-1.5 py-1.5 md:hidden"
       >
-        {navItems.slice(0, 5).map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -273,7 +291,7 @@ export function AppShell() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex min-h-[48px] min-w-[64px] flex-col items-center justify-center rounded-md px-1.5 text-[11px] font-medium ${
+                `flex min-h-[48px] min-w-[66px] shrink-0 flex-col items-center justify-center rounded-md px-1.5 text-[11px] font-medium ${
                   isActive ? "text-slate-900 font-semibold" : "text-muted-foreground"
                 }`
               }

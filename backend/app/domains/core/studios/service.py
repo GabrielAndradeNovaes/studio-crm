@@ -22,6 +22,7 @@ from app.core.exceptions import (
 from app.core.rbac import AuthenticatedPrincipal, TenantContext
 from app.core.security import hash_password, verify_password
 from app.core.timezone import utcnow
+from app.domains.core.anamnesis.service import ensure_default_piercing_template
 from app.domains.core.studios.models import PaymentMethodConfig, Studio
 from app.domains.core.studios.repository import (
     PaymentMethodConfigRepository,
@@ -154,6 +155,9 @@ async def onboard_studio_public(
     )
     session.add(membership)
     await _seed_default_payment_methods(session, studio.id)
+    await ensure_default_piercing_template(
+        session, studio.id, actor_user_id=owner_user.id
+    )
 
     await record_audit_log(
         session,
@@ -231,6 +235,9 @@ async def create_studio_by_superadmin(
     )
     session.add(membership)
     await _seed_default_payment_methods(session, studio.id)
+    await ensure_default_piercing_template(
+        session, studio.id, actor_user_id=owner_user.id
+    )
 
     await record_audit_log(
         session,

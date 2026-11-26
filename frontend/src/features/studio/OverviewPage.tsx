@@ -2,25 +2,27 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Calendar,
+  CalendarClock,
   ContactRound,
   Gem,
-  Percent,
-  ShieldCheck,
-  Syringe,
 } from "lucide-react";
 import { Badge, Card } from "@/components/ui/primitives";
 import { useAuth } from "@/features/auth/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { todayIsoInTimezone } from "@/lib/dates";
 import type {
+  AppointmentItem,
   ClientRecord,
   PiercingProductItem,
-  PiercingServiceItem,
+  PiercingProcedureItem,
   StudioDetails,
-  TeamMemberOwner,
 } from "@/lib/types";
 
 export function OverviewPage() {
   const { currentStudio, user } = useAuth();
+  const studioTz = currentStudio?.timezone || "America/Sao_Paulo";
+  const todayIso = todayIsoInTimezone(studioTz);
   const hasPiercing = Boolean(
     currentStudio?.enabled_modules?.includes("piercing")
   );
@@ -31,9 +33,12 @@ export function OverviewPage() {
     enabled: Boolean(currentStudio),
   });
 
-  const { data: myProfile } = useQuery({
-    queryKey: ["team-me", currentStudio?.studio_id],
-    queryFn: () => apiFetch<TeamMemberOwner>("/team/me"),
+  const { data: todayAppointments } = useQuery({
+    queryKey: ["appointments-today", currentStudio?.studio_id, todayIso],
+    queryFn: () =>
+      apiFetch<AppointmentItem[]>(
+        `/appointments?date_from=${todayIso}&date_to=${todayIso}`
+      ),
     enabled: Boolean(currentStudio),
   });
 
@@ -43,9 +48,12 @@ export function OverviewPage() {
     enabled: Boolean(currentStudio),
   });
 
-  const { data: services } = useQuery({
-    queryKey: ["piercing-services-summary", currentStudio?.studio_id],
-    queryFn: () => apiFetch<PiercingServiceItem[]>("/piercing/services?active_only=true"),
+  const { data: pendingDownsizes } = useQuery({
+    queryKey: ["downsize-summary", currentStudio?.studio_id],
+    queryFn: () =>
+      apiFetch<PiercingProcedureItem[]>(
+        "/piercing/procedures/downsize-reminders?window=all_pending"
+      ),
     enabled: Boolean(currentStudio && hasPiercing),
   });
 
@@ -80,6 +88,27 @@ export function OverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link to="/appointments" className="block">
+          <Card className="h-full p-5 transition hover:border-slate-400">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                Agenda de Hoje
+              </span>
+              <Calendar className="h-4 w-4 text-sky-600" aria-hidden="true" />
+            </div>
+            <p className="mt-3 text-2xl font-bold text-slate-900">
+              {todayAppointments?.length ?? 0}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Com sinal pago:{" "}
+              <strong>
+                {todayAppointments?.filter((a) => a.deposit_status === "PAID")
+                  .length ?? 0}
+              </strong>
+            </p>
+          </Card>
+        </Link>
+
         <Link to="/clients" className="block">
           <Card className="h-full p-5 transition hover:border-slate-400">
             <div className="flex items-center justify-between">
@@ -99,20 +128,26 @@ export function OverviewPage() {
         </Link>
 
         {hasPiercing && (
-          <Link to="/piercing/services" className="block">
+          <Link to="/piercing/downsize" className="block">
             <Card className="h-full p-5 transition hover:border-slate-400">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Perfurações Ativas
+                  Retornos de Downsize
                 </span>
-                <Syringe className="h-4 w-4 text-sky-600" aria-hidden="true" />
+                <CalendarClock className="h-4 w-4 text-indigo-600" aria-hidden="true" />
               </div>
-              <p className="mt-3 text-2xl font-bold text-slate-900">
-                {services?.length ?? 0}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Catálogo anatômico configurado
-              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-2xl font-bold text-slate-900">
+                  {pendingDownsizes?.length ?? 0}
+                </span>
+                {(pendingDownsizes?.filter((d) => d.is_overdue).length ?? 0) >
+                  0 && (
+                  <Badge tone="danger">
+                    {pendingDownsizes?.filter((d) => d.is_overdue).length}{" "}
+                    atrasado(s)
+                  </Badge>
+                )}
+              </div>
             </Card>
           </Link>
         )}
@@ -142,25 +177,6 @@ export function OverviewPage() {
             </Card>
           </Link>
         )}
-
-        <Card className="p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase text-muted-foreground">
-              Minhas Comissões &amp; Plano
-            </span>
-            <Percent className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-          </div>
-          <p className="mt-3 text-sm font-medium text-slate-900">
-            Serviço: <strong>{myProfile?.commission_service_pct ?? "0.00"}%</strong> •
-            Joia: <strong>{myProfile?.commission_product_pct ?? "0.00"}%</strong>
-          </p>
-          <div className="mt-2 flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-            <span className="text-xs text-muted-foreground">
-              Status: {currentStudio.subscription_status}
-            </span>
-          </div>
-        </Card>
       </div>
     </div>
   );

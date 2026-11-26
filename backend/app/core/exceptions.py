@@ -34,14 +34,21 @@ class ConflictError(AppError):
         super().__init__(status_code=status.HTTP_409_CONFLICT, code=code, detail=detail)
 
 
+class GoneError(AppError):
+    def __init__(
+        self,
+        detail: str = "Este link expirou ou já foi utilizado.",
+        code: str = "LINK_EXPIRED_OR_USED",
+    ) -> None:
+        super().__init__(status_code=status.HTTP_410_GONE, code=code, detail=detail)
+
+
 class DomainValidationError(AppError):
     def __init__(
         self, detail: str = "Regra de negócio inválida.", code: str = "DOMAIN_VALIDATION_ERROR"
     ) -> None:
         http_422 = getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422)
-        super().__init__(
-            status_code=http_422, code=code, detail=detail
-        )
+        super().__init__(status_code=http_422, code=code, detail=detail)
 
 
 class RateLimitExceededError(AppError):
