@@ -1,14 +1,25 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import AfterValidator, BaseModel, Field
 
 from app.core.enums import StudioRole, SubscriptionStatus
 
 
+def _validate_login_email(value: str) -> str:
+    cleaned = value.strip().lower()
+    if "@" not in cleaned or cleaned.startswith("@") or cleaned.endswith("@"):
+        raise ValueError("Informe um endereço de e-mail válido.")
+    return cleaned
+
+
+LoginEmailStr = Annotated[str, Field(min_length=3, max_length=255), AfterValidator(_validate_login_email)]
+
+
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: LoginEmailStr
     password: str = Field(..., min_length=1, max_length=128)
 
 
@@ -22,13 +33,13 @@ class SwitchStudioRequest(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+    email: LoginEmailStr
 
 
 class AuthenticatedUserSummary(BaseModel):
     id: uuid.UUID
     name: str
-    email: EmailStr
+    email: str
     is_superadmin: bool
 
 
