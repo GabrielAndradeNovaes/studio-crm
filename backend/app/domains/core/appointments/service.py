@@ -11,7 +11,10 @@ from app.core.audit import record_audit_log
 from app.core.enums import (
     AppointmentStatus,
     AuditAction,
+    CashFlowDirection,
     DepositStatus,
+    FinancialTransactionCategory,
+    FinancialTransactionType,
     StudioRole,
 )
 from app.core.exceptions import (
@@ -24,18 +27,26 @@ from app.core.tenancy import bypass_tenant_filter
 from app.core.timezone import (
     calculate_age_in_timezone,
     studio_date_range_to_utc,
+    timestamp_to_studio_date,
     utcnow,
 )
 from app.domains.core.appointments.models import Appointment
 from app.domains.core.appointments.repository import AppointmentRepository
 from app.domains.core.appointments.schemas import (
     AppointmentCreateRequest,
+    AppointmentDepositRefundRequest,
     AppointmentDepositRequest,
     AppointmentResponse,
     AppointmentUpdateRequest,
 )
 from app.domains.core.clients.models import Client
 from app.domains.core.clients.repository import ClientRepository
+from app.domains.core.finance.models import FinancialTransaction, Payment
+from app.domains.core.finance.money import compute_payment_fee_and_net, money
+from app.domains.core.finance.repository import (
+    FinancialTransactionRepository,
+    PaymentRepository,
+)
 from app.domains.core.studios.repository import PaymentMethodConfigRepository
 from app.domains.core.users.models import User
 from app.domains.core.users.repository import StudioMembershipRepository
@@ -434,9 +445,7 @@ async def register_appointment_deposit(
     request: Request | None = None,
 ) -> AppointmentResponse:
     repo = AppointmentRepository(session, tenant.studio_id)
-    appt = await repo.get_by_id_or_404(
-        appointment_id, detail="Agendamento não encontrado."
-    )
+    appt = await repo.get_by_id_for_update_or_404(appointment_id)
 
     if appt.deposit_status in {DepositStatus.PAID, DepositStatus.APPLIED_TO_SALE}:
         raise ConflictError(
@@ -465,11 +474,60 @@ async def register_appointment_deposit(
             code="PAYMENT_METHOD_INACTIVE",
         )
 
+    client_repo = ClientRepository(session, tenant.studio_id)
+    client = await client_repo.get_by_id_or_404(appt.client_id)
+
+    gross_amount = money(payload.amount)
+    fee_amount, net_amount = compute_payment_fee_and_net(
+        gross_amount=gross_amount,
+        fee_percentage=active_pm.fee_percentage,
+        fixed_fee=active_pm.fixed_fee,
+    )
     paid_at = payload.paid_at or utcnow()
+    comp_date = timestamp_to_studio_date(paid_at, tenant.timezone)
+
+    pay_repo = PaymentRepository(session, tenant.studio_id)
+    payment = await pay_repo.add(
+        Payment(
+            studio_id=tenant.studio_id,
+            sale_id=None,
+            appointment_id=appt.id,
+            method=payload.payment_method,
+            is_deposit=True,
+            gross_amount=gross_amount,
+            fee_percentage_snapshot=active_pm.fee_percentage,
+            fixed_fee_snapshot=active_pm.fixed_fee,
+            fee_amount=fee_amount,
+            net_amount=net_amount,
+            paid_at=paid_at,
+            created_by=tenant.user_id,
+        )
+    )
+
+    tx_repo = FinancialTransactionRepository(session, tenant.studio_id)
+    await tx_repo.add(
+        FinancialTransaction(
+            studio_id=tenant.studio_id,
+            type=FinancialTransactionType.INCOME,
+            category=FinancialTransactionCategory.APPOINTMENT_DEPOSIT,
+            cash_flow_direction=CashFlowDirection.INFLOW,
+            payment_method=payload.payment_method,
+            description=f"Sinal de agendamento — {client.full_name}",
+            gross_amount=gross_amount,
+            fee_amount=fee_amount,
+            net_amount=net_amount,
+            competence_date=comp_date,
+            paid_at=paid_at,
+            reference_payment_id=payment.id,
+            reference_appointment_id=appt.id,
+            created_by=tenant.user_id,
+        )
+    )
+
     updated = await repo.update_by_id(
         appt.id,
         {
-            "deposit_amount": payload.amount,
+            "deposit_amount": gross_amount,
             "deposit_payment_method": payload.payment_method,
             "deposit_status": DepositStatus.PAID,
             "deposit_paid_at": paid_at,
@@ -485,9 +543,112 @@ async def register_appointment_deposit(
         entity_id=appt.id,
         action=AuditAction.DEPOSIT_RECEIVED,
         metadata_diff={
-            "deposit_amount": str(payload.amount),
+            "deposit_amount": str(gross_amount),
+            "fee_amount": str(fee_amount),
+            "net_amount": str(net_amount),
             "deposit_payment_method": payload.payment_method.value,
-            "deposit_paid_at": paid_at.isoformat(),
+            "competence_date": comp_date.isoformat(),
+        },
+        request=request,
+    )
+    await session.commit()
+    await session.refresh(updated)
+    return (await _enrich_appointments(session, tenant, [updated]))[0]
+
+
+async def refund_appointment_deposit(
+    session: AsyncSession,
+    tenant: TenantContext,
+    appointment_id: uuid.UUID,
+    payload: AppointmentDepositRefundRequest,
+    *,
+    request: Request | None = None,
+) -> AppointmentResponse:
+    repo = AppointmentRepository(session, tenant.studio_id)
+    appt = await repo.get_by_id_for_update_or_404(appointment_id)
+
+    if appt.deposit_status == DepositStatus.REFUNDED:
+        raise ConflictError(
+            detail="O sinal deste agendamento já foi estornado.",
+            code="DEPOSIT_ALREADY_REFUNDED",
+        )
+    if appt.deposit_status == DepositStatus.APPLIED_TO_SALE:
+        raise ConflictError(
+            detail="Este sinal já foi abatido em uma venda concluída; utilize o estorno da venda.",
+            code="DEPOSIT_APPLIED_TO_SALE",
+        )
+    if appt.deposit_status != DepositStatus.PAID or appt.deposit_amount <= 0:
+        raise DomainValidationError(
+            detail="Este agendamento não possui sinal pago pendente para estorno.",
+            code="DEPOSIT_NOT_REFUNDABLE",
+        )
+
+    orig_tx = (
+        await session.execute(
+            sa.select(FinancialTransaction)
+            .where(
+                FinancialTransaction.studio_id == tenant.studio_id,
+                FinancialTransaction.reference_appointment_id == appt.id,
+                FinancialTransaction.category
+                == FinancialTransactionCategory.APPOINTMENT_DEPOSIT,
+            )
+            .order_by(FinancialTransaction.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    now = utcnow()
+    comp_date = timestamp_to_studio_date(now, tenant.timezone)
+    tx_repo = FinancialTransactionRepository(session, tenant.studio_id)
+
+    reversed_id: uuid.UUID | None = None
+    if orig_tx is not None and not await tx_repo.has_reversal(orig_tx.id):
+        reversed_id = orig_tx.id
+
+    refund_amt = money(appt.deposit_amount)
+    await tx_repo.add(
+        FinancialTransaction(
+            studio_id=tenant.studio_id,
+            type=FinancialTransactionType.REVERSAL,
+            category=FinancialTransactionCategory.REFUND_OUTFLOW,
+            cash_flow_direction=CashFlowDirection.OUTFLOW,
+            payment_method=appt.deposit_payment_method,
+            description=f"Estorno de sinal de agendamento — {payload.reason.strip()}",
+            gross_amount=refund_amt,
+            fee_amount=money("0.00"),
+            net_amount=refund_amt,
+            competence_date=comp_date,
+            paid_at=now,
+            reference_appointment_id=appt.id,
+            reversed_transaction_id=reversed_id,
+            created_by=tenant.user_id,
+        )
+    )
+
+    next_status = (
+        appt.status
+        if appt.status in {AppointmentStatus.CANCELADO, AppointmentStatus.FALTOU}
+        else AppointmentStatus.CANCELADO
+    )
+    updated = await repo.update_by_id(
+        appt.id,
+        {
+            "deposit_status": DepositStatus.REFUNDED,
+            "status": next_status,
+            "updated_by": tenant.user_id,
+        },
+    )
+
+    await record_audit_log(
+        session,
+        studio_id=tenant.studio_id,
+        actor_user_id=tenant.user_id,
+        entity_name="appointments",
+        entity_id=appt.id,
+        action=AuditAction.DEPOSIT_REFUNDED,
+        metadata_diff={
+            "refunded_amount": str(refund_amt),
+            "reason": payload.reason.strip(),
         },
         request=request,
     )

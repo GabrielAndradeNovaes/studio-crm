@@ -27,6 +27,15 @@ def today_in_studio_timezone(tz_name: str = "America/Sao_Paulo") -> date:
     return datetime.now(tz).date()
 
 
+def timestamp_to_studio_date(
+    dt: datetime, tz_name: str = "America/Sao_Paulo"
+) -> date:
+    """Converte um instante UTC/aware para a data de competência civil no fuso do estúdio."""
+    tz = ZoneInfo(validate_timezone_name(tz_name))
+    aware = dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+    return aware.astimezone(tz).date()
+
+
 def calculate_age_in_timezone(
     birth_date: date, tz_name: str = "America/Sao_Paulo"
 ) -> tuple[int, bool]:

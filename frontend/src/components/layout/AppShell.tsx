@@ -9,11 +9,14 @@ import {
   Gem,
   LayoutDashboard,
   LogOut,
+  Percent,
   Settings,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
   Syringe,
   Users,
+  Wallet,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui/primitives";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -63,6 +66,28 @@ export function AppShell() {
             to: "/appointments",
             label: "Agenda",
             icon: Calendar,
+          },
+          ...(currentStudio.role === "OWNER" ||
+          currentStudio.role === "RECEPTION"
+            ? [
+                {
+                  to: "/pos",
+                  label: "PDV",
+                  icon: ShoppingBag,
+                },
+                {
+                  to: "/finance/cashflow",
+                  label:
+                    currentStudio.role === "OWNER" ? "Livro-Caixa" : "Caixa Dia",
+                  icon: Wallet,
+                },
+              ]
+            : []),
+          {
+            to: "/finance/commissions",
+            label:
+              currentStudio.role === "OWNER" ? "Comissões" : "Minhas Comissões",
+            icon: Percent,
           },
           {
             to: "/clients",

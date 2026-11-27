@@ -11,6 +11,7 @@ from app.core.enums import AppointmentStatus, StudioRole
 from app.core.rbac import TenantContext, get_active_tenant_context, require_roles
 from app.domains.core.appointments.schemas import (
     AppointmentCreateRequest,
+    AppointmentDepositRefundRequest,
     AppointmentDepositRequest,
     AppointmentResponse,
     AppointmentUpdateRequest,
@@ -19,6 +20,7 @@ from app.domains.core.appointments.service import (
     create_appointment,
     get_appointment_detail,
     list_appointments,
+    refund_appointment_deposit,
     register_appointment_deposit,
     soft_delete_appointment,
     update_appointment,
@@ -100,6 +102,22 @@ async def register_deposit_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> AppointmentResponse:
     return await register_appointment_deposit(
+        db, tenant, appointment_id, payload, request=request
+    )
+
+
+@router.post(
+    "/{appointment_id}/deposit/refund",
+    response_model=AppointmentResponse,
+)
+async def refund_deposit_endpoint(
+    appointment_id: uuid.UUID,
+    payload: AppointmentDepositRefundRequest,
+    request: Request,
+    tenant: TenantContext = Depends(require_roles(StudioRole.OWNER)),
+    db: AsyncSession = Depends(get_db),
+) -> AppointmentResponse:
+    return await refund_appointment_deposit(
         db, tenant, appointment_id, payload, request=request
     )
 

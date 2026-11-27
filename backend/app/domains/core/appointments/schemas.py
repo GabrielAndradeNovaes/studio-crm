@@ -67,6 +67,10 @@ class AppointmentDepositRequest(BaseModel):
         return _ensure_tz_utc(v)
 
 
+class AppointmentDepositRefundRequest(BaseModel):
+    reason: str = Field(..., min_length=2, max_length=255)
+
+
 class AppointmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

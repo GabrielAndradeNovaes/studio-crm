@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Calendar,
@@ -10,6 +11,8 @@ import {
   ExternalLink,
   Link2,
   Plus,
+  RotateCcw,
+  ShoppingBag,
 } from "lucide-react";
 import { Badge, Button, Card, Input, Label } from "@/components/ui/primitives";
 import { ModalDialog } from "@/components/ui/ModalDialog";
@@ -51,7 +54,9 @@ const STATUS_OPTIONS: {
 export function AppointmentsPage() {
   const { currentStudio } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const studioTz = currentStudio?.timezone || "America/Sao_Paulo";
+  const isOwner = currentStudio?.role === "OWNER";
   const isProfessional = currentStudio?.role === "PROFESSIONAL";
   const canManageAll =
     currentStudio?.role === "OWNER" || currentStudio?.role === "RECEPTION";
@@ -70,6 +75,9 @@ export function AppointmentsPage() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [depositTarget, setDepositTarget] =
     React.useState<AppointmentItem | null>(null);
+  const [refundDepositTarget, setRefundDepositTarget] =
+    React.useState<AppointmentItem | null>(null);
+  const [refundDepositReason, setRefundDepositReason] = React.useState("");
   const [generatedLink, setGeneratedLink] =
     React.useState<PublicAnamnesisLinkCreated | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -201,12 +209,41 @@ export function AppointmentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-daily-register"] });
       setDepositTarget(null);
       setFormError(null);
     },
     onError: (err) => {
       setFormError(
         err instanceof ApiError ? err.detail : "Erro ao registrar sinal."
+      );
+    },
+  });
+
+  const refundDepositMutation = useMutation({
+    mutationFn: () => {
+      if (!refundDepositTarget) throw new Error("Agendamento inválido");
+      return apiFetch<AppointmentItem>(
+        `/appointments/${refundDepositTarget.id}/deposit/refund`,
+        {
+          method: "POST",
+          body: JSON.stringify({ reason: refundDepositReason.trim() }),
+        }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-daily-register"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-dashboard"] });
+      setRefundDepositTarget(null);
+      setRefundDepositReason("");
+      setFormError(null);
+    },
+    onError: (err) => {
+      setFormError(
+        err instanceof ApiError ? err.detail : "Erro ao estornar sinal."
       );
     },
   });
@@ -412,6 +449,22 @@ export function AppointmentsPage() {
                         {appt.deposit_payment_method})
                       </Badge>
                     )}
+                    {appt.deposit_status === "APPLIED_TO_SALE" && (
+                      <Badge tone="info">
+                        Sinal Abatido em Venda:{" "}
+                        {formatCurrencyBRL(appt.deposit_amount)}
+                      </Badge>
+                    )}
+                    {appt.deposit_status === "REFUNDED" && (
+                      <Badge tone="neutral">
+                        Sinal Estornado: {formatCurrencyBRL(appt.deposit_amount)}
+                      </Badge>
+                    )}
+                    {appt.deposit_status === "FORFEITED" && (
+                      <Badge tone="warning">
+                        Sinal Retido: {formatCurrencyBRL(appt.deposit_amount)}
+                      </Badge>
+                    )}
                   </div>
 
                   <p className="text-base font-semibold text-slate-900">
@@ -449,6 +502,24 @@ export function AppointmentsPage() {
                     ))}
                   </select>
 
+                  {canManageAll &&
+                    appt.status !== "CONCLUIDO" &&
+                    appt.status !== "CANCELADO" &&
+                    appt.status !== "FALTOU" && (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          navigate(`/pos?appointmentId=${appt.id}`)
+                        }
+                      >
+                        <ShoppingBag
+                          className="h-3.5 w-3.5"
+                          aria-hidden="true"
+                        />
+                        Fechar Venda (PDV)
+                      </Button>
+                    )}
+
                   {canManageAll && appt.deposit_status === "NONE" && (
                     <Button
                       size="sm"
@@ -464,6 +535,23 @@ export function AppointmentsPage() {
                       Registrar Sinal
                     </Button>
                   )}
+
+                  {isOwner &&
+                    appt.deposit_status === "PAID" &&
+                    appt.status !== "CONCLUIDO" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setFormError(null);
+                          setRefundDepositReason("");
+                          setRefundDepositTarget(appt);
+                        }}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                        Estornar Sinal
+                      </Button>
+                    )}
 
                   <Button
                     size="sm"
@@ -659,6 +747,56 @@ export function AppointmentsPage() {
               {depositMutation.isPending
                 ? "Registrando..."
                 : "Confirmar recebimento"}
+            </Button>
+          </div>
+        </form>
+      </ModalDialog>
+
+      {/* Modal Estornar Sinal */}
+      <ModalDialog
+        open={Boolean(refundDepositTarget)}
+        onClose={() => setRefundDepositTarget(null)}
+        title={`Estornar Sinal — ${refundDepositTarget?.client_name || ""}`}
+        description="Cancela o agendamento e lança uma saída imutável (REFUND_OUTFLOW) no livro-caixa."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            refundDepositMutation.mutate();
+          }}
+          className="space-y-4"
+        >
+          {formError && (
+            <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-900">
+              {formError}
+            </div>
+          )}
+          <div>
+            <Label htmlFor="ref-dep-reason">Motivo do Cancelamento / Estorno *</Label>
+            <Input
+              id="ref-dep-reason"
+              required
+              minLength={2}
+              value={refundDepositReason}
+              onChange={(e) => setRefundDepositReason(e.target.value)}
+              placeholder="Ex.: Reagendamento inviável / solicitação do cliente"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setRefundDepositTarget(null)}
+            >
+              Voltar
+            </Button>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={refundDepositMutation.isPending}
+            >
+              {refundDepositMutation.isPending
+                ? "Estornando..."
+                : "Confirmar Estorno do Sinal"}
             </Button>
           </div>
         </form>

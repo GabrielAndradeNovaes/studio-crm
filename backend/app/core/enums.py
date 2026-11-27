@@ -60,6 +60,45 @@ class DepositStatus(str, enum.Enum):
     FORFEITED = "FORFEITED"
 
 
+class SaleStatus(str, enum.Enum):
+    COMPLETED = "COMPLETED"
+    REFUNDED = "REFUNDED"
+
+
+class SaleItemKind(str, enum.Enum):
+    PIERCING_SERVICE = "PIERCING_SERVICE"
+    PIERCING_PRODUCT = "PIERCING_PRODUCT"
+    TATTOO_SESSION = "TATTOO_SESSION"
+
+
+class CommissionStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    PAID = "PAID"
+    REVERSED = "REVERSED"
+
+
+class FinancialTransactionType(str, enum.Enum):
+    INCOME = "INCOME"
+    EXPENSE = "EXPENSE"
+    REVERSAL = "REVERSAL"
+
+
+class FinancialTransactionCategory(str, enum.Enum):
+    SALE_PAYMENT = "SALE_PAYMENT"
+    APPOINTMENT_DEPOSIT = "APPOINTMENT_DEPOSIT"
+    FIXED_EXPENSE = "FIXED_EXPENSE"
+    VARIABLE_EXPENSE = "VARIABLE_EXPENSE"
+    INVENTORY_PURCHASE = "INVENTORY_PURCHASE"
+    COMMISSION_PAYOUT = "COMMISSION_PAYOUT"
+    REFUND_OUTFLOW = "REFUND_OUTFLOW"
+    OTHER_INCOME = "OTHER_INCOME"
+
+
+class CashFlowDirection(str, enum.Enum):
+    INFLOW = "INFLOW"
+    OUTFLOW = "OUTFLOW"
+
+
 class AuditAction(str, enum.Enum):
     CREATE = "CREATE"
     UPDATE = "UPDATE"
@@ -70,6 +109,8 @@ class AuditAction(str, enum.Enum):
     REFUND = "REFUND"
     INVENTORY_MOVEMENT = "INVENTORY_MOVEMENT"
     DEPOSIT_RECEIVED = "DEPOSIT_RECEIVED"
+    DEPOSIT_REFUNDED = "DEPOSIT_REFUNDED"
+    COMMISSION_PAYOUT = "COMMISSION_PAYOUT"
 
 
 SUPPORTED_MODULES: frozenset[str] = frozenset({"piercing", "tattoo"})

@@ -53,6 +53,8 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
     async with test_engine.begin() as conn:
+        if test_db_url.startswith("sqlite"):
+            await conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
         await conn.run_sync(Base.metadata.drop_all)
     await test_engine.dispose()
 

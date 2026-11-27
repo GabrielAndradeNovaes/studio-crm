@@ -141,4 +141,92 @@ dialog::backdrop {
     font-weight: 600;
     color: hsl(var(--muted-foreground));
   }
+
+  .responsive-data-table tbody td:nth-child(7)::before {
+    content: var(--label-7) ": ";
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+  }
+}
+
+/* Accessible single-row scrollable tablist & non-color underline indicator */
+@property --fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.mwg-tablist {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: inline proximity;
+  --fade-size: 2.5rem;
+  scroll-padding-inline: var(--fade-size);
+  --fade-dir: right;
+  --fade-start-pos: 0;
+  --fade-end-pos: 100%;
+  border-block-end: 1px solid hsl(var(--border));
+  mask:
+    linear-gradient(black, black) no-clip subtract,
+    linear-gradient(to var(--fade-dir), black, transparent) var(--fade-start-pos) 0 / var(--fade-start) 100% no-repeat no-clip,
+    linear-gradient(to var(--fade-dir), transparent, black) var(--fade-end-pos) 0 / var(--fade-end) 100% no-repeat no-clip;
+  animation: mwg-reveal-fade-start linear both, mwg-hide-fade-end linear both;
+  animation-timeline: scroll(self inline);
+  animation-range: 0 var(--fade-size), calc(100% - var(--fade-size)) 100%;
+  transition: --fade-start 0.2s, --fade-end 0.2s;
+}
+
+.mwg-tablist::-webkit-scrollbar {
+  display: none;
+}
+
+.mwg-tablist:dir(rtl) {
+  --fade-dir: left;
+  --fade-start-pos: 100%;
+  --fade-end-pos: 0;
+}
+
+.mwg-tablist.more-start {
+  --fade-start: var(--fade-size);
+}
+
+.mwg-tablist.more-end {
+  --fade-end: var(--fade-size);
+}
+
+@keyframes mwg-reveal-fade-start {
+  to {
+    --fade-start: var(--fade-size);
+  }
+}
+
+@keyframes mwg-hide-fade-end {
+  from {
+    --fade-end: var(--fade-size);
+  }
+}
+
+[role="tab"] {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+  color: hsl(var(--muted-foreground));
+}
+
+[role="tab"][aria-selected="true"] {
+  color: hsl(var(--foreground));
+}
+
+[role="tab"][aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  border-block-end: 3px solid hsl(var(--primary));
 }

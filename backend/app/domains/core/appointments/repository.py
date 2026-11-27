@@ -7,6 +7,7 @@ from datetime import datetime
 import sqlalchemy as sa
 
 from app.core.enums import AppointmentStatus
+from app.core.exceptions import NotFoundError
 from app.core.tenancy import BaseTenantRepository
 from app.domains.core.appointments.models import Appointment
 
@@ -18,6 +19,19 @@ NON_BLOCKING_STATUSES = (
 
 class AppointmentRepository(BaseTenantRepository[Appointment]):
     model = Appointment
+
+    async def get_by_id_for_update_or_404(
+        self, appointment_id: uuid.UUID
+    ) -> Appointment:
+        stmt = (
+            self._base_select(include_deleted=False)
+            .where(Appointment.id == appointment_id)
+            .with_for_update()
+        )
+        appt = (await self.session.execute(stmt)).scalar_one_or_none()
+        if appt is None:
+            raise NotFoundError(detail="Agendamento não encontrado.")
+        return appt
 
     async def has_overlapping_appointment(
         self,

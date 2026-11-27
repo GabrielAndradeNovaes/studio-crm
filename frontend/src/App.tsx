@@ -8,9 +8,12 @@ import { AuthProvider, useAuth } from "@/features/auth/AuthContext";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { OnboardingPage } from "@/features/auth/OnboardingPage";
 import { ClientsPage } from "@/features/clients/ClientsPage";
+import { CommissionsPage } from "@/features/finance/CommissionsPage";
+import { FinanceCashflowPage } from "@/features/finance/FinanceCashflowPage";
 import { DownsizePage } from "@/features/piercing/DownsizePage";
 import { PiercingInventoryPage } from "@/features/piercing/PiercingInventoryPage";
 import { PiercingServicesPage } from "@/features/piercing/PiercingServicesPage";
+import { PosPage } from "@/features/pos/PosPage";
 import { OverviewPage } from "@/features/studio/OverviewPage";
 import { StudioSettingsPage } from "@/features/studio/StudioSettingsPage";
 import { SuperAdminPage } from "@/features/studio/SuperAdminPage";
@@ -43,6 +46,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function OwnerRoute({ children }: { children: React.ReactNode }) {
   const { currentStudio } = useAuth();
   if (currentStudio?.role !== "OWNER") {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
+function StaffOperationalRoute({ children }: { children: React.ReactNode }) {
+  const { currentStudio } = useAuth();
+  if (
+    currentStudio?.role !== "OWNER" &&
+    currentStudio?.role !== "RECEPTION"
+  ) {
     return <Navigate to="/" replace />;
   }
   return <>{children}</>;
@@ -91,6 +105,26 @@ export function App() {
             >
               <Route path="/" element={<OverviewPage />} />
               <Route path="/appointments" element={<AppointmentsPage />} />
+              <Route
+                path="/pos"
+                element={
+                  <StaffOperationalRoute>
+                    <PosPage />
+                  </StaffOperationalRoute>
+                }
+              />
+              <Route
+                path="/finance/cashflow"
+                element={
+                  <StaffOperationalRoute>
+                    <FinanceCashflowPage />
+                  </StaffOperationalRoute>
+                }
+              />
+              <Route
+                path="/finance/commissions"
+                element={<CommissionsPage />}
+              />
               <Route path="/clients" element={<ClientsPage />} />
               <Route path="/anamnesis" element={<AnamnesisPage />} />
               <Route

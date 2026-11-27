@@ -8,7 +8,7 @@ Plataforma SaaS B2B **multi-tenant** voltada para estúdios de **Body Piercing**
 - `/frontend`: React 18 + TypeScript + Vite + Tailwind CSS + TanStack Query + componentes acessíveis inspirados em `shadcn/ui`.
 - `docker-compose.yml`: PostgreSQL 16 + API FastAPI + Frontend Vite.
 
-## Destaques das Fases 1, 2 e 3
+## Destaques do MVP Completo (Fases 1 a 4)
 
 1. **Identidade Global + Multi-Estúdio (`users` + `studio_memberships`):**
    - Login único por e-mail e senha.
@@ -30,6 +30,11 @@ Plataforma SaaS B2B **multi-tenant** voltada para estúdios de **Body Piercing**
    - Agenda diária e semanal no fuso do estúdio (`appointments`) com bloqueio de conflito de horário por profissional, escopo individual para `PROFESSIONAL` e registro dedicado de sinal sem duplicidade.
    - Fichas de anamnese versionadas (`anamnesis_templates`, `anamnesis_records`) estritamente imutáveis após aceite (`409 ANAMNESIS_IMMUTABLE`), trilha `READ_SENSITIVE` em `audit_logs` e link público temporário de uso único (`/anamnese/:token`) para assinatura no celular.
    - Registro técnico (`piercing_procedures`) com lote de autoclave, lembretes automáticos de retorno para downsize e envio rápido via WhatsApp (sem baixa duplicada de estoque antes do PDV).
+7. **PDV com Baixa Atômica, Comissões, Livro-Caixa Imutável, Estornos & Dashboard DRE:**
+   - Precisão estrita em `Decimal` (`NUMERIC(12,2)` com `ROUND_HALF_UP`), sem uso de `float`.
+   - Fechamento de vendas no PDV (`/pos` e `POST /api/v1/finance/sales`) avulso ou vinculado a agendamento, abatendo sinais pagos (`PAID -> APPLIED_TO_SALE`) sem duplicidade contábil, bloqueando e debitando joias com `SELECT ... FOR UPDATE` (`OUT_SALE` no Kardex) e suportando split em múltiplos meios de pagamento com cálculo automático de taxas.
+   - Motor de comissões (`commissions`) com percentuais independentes para serviços e produtos, suporte a `studios.commission_deducts_payment_fee`, repasse em lote único (`COMMISSION_PAYOUT`) e ajuste negativo automático quando uma venda já paga ao profissional é estornada.
+   - Livro-caixa imutável (`financial_transactions`), Caixa Operacional do Dia para recepção sem vazamento de CMV/lucro, e Dashboard Executivo com DRE Simplificada exclusivo para `OWNER`.
 
 ## Como Subir via Docker
 
